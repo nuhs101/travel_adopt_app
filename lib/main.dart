@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(PlanManagerApp());
@@ -107,7 +108,6 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
   }
 
   void _editPlan(int index) {
-    Plan plan = plans[index];
     _createPlan();
   }
 
@@ -121,5 +121,55 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     setState(() {
       plans.removeAt(index);
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Plan Manager')),
+      body: ListView.builder(
+        itemCount: plans.length,
+        itemBuilder: (context, index) {
+          final plan = plans[index];
+          return Dismissible(
+            key: Key(plan.name),
+            background: Container(
+              color: Colors.green,
+              child: Icon(Icons.check),
+            ),
+            secondaryBackground: Container(
+              color: Colors.red,
+              child: Icon(Icons.delete),
+            ),
+            onDismissed: (direction) {
+              if (direction == DismissDirection.startToEnd) {
+                _toggleComplete(index);
+              } else {
+                _deletePlan(index);
+              }
+            },
+            child: ListTile(
+              title: Text(
+                plan.name,
+                style: TextStyle(
+                  decoration:
+                      plan.isCompleted
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                ),
+              ),
+              subtitle: Text(
+                "${plan.description} | ${DateFormat.yMMMd().format(plan.date)}",
+              ),
+              onLongPress: () => _editPlan(index),
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _createPlan,
+        child: Icon(Icons.add),
+      ),
+    );
   }
 }
