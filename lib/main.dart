@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 void main() {
   runApp(PlanManagerApp());
@@ -41,43 +42,28 @@ class PlanManagerScreen extends StatefulWidget {
 
 class _PlanManagerScreenState extends State<PlanManagerScreen> {
   List<Plan> plans = [];
+  Plan? draggedPlan;
+  DateTime selectedDate = DateTime.now();
 
-  void _createOrEditPlan({int? index}) {
-    String name = index != null ? plans[index].name : '';
-    String description = index != null ? plans[index].description : '';
-    DateTime selectedDate = index != null ? plans[index].date : DateTime.now();
-
+  void _createPlan() {
     showDialog(
       context: context,
       builder: (context) {
+        String name = '';
+        String description = '';
+
         return AlertDialog(
-          title: Text(index == null ? 'Create Plan' : 'Edit Plan'),
+          title: Text('Create Plan'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 decoration: InputDecoration(labelText: 'Plan Name'),
                 onChanged: (value) => name = value,
-                controller: TextEditingController(text: name),
               ),
               TextField(
                 decoration: InputDecoration(labelText: 'Description'),
                 onChanged: (value) => description = value,
-                controller: TextEditingController(text: description),
-              ),
-              ElevatedButton(
-                child: Text("Pick Date"),
-                onPressed: () async {
-                  DateTime? picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setState(() => selectedDate = picked);
-                  }
-                },
               ),
             ],
           ),
@@ -91,21 +77,13 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
               onPressed: () {
                 if (name.isNotEmpty) {
                   setState(() {
-                    if (index == null) {
-                      plans.add(
-                        Plan(
-                          name: name,
-                          description: description,
-                          date: selectedDate,
-                        ),
-                      );
-                    } else {
-                      plans[index] = Plan(
+                    plans.add(
+                      Plan(
                         name: name,
                         description: description,
                         date: selectedDate,
-                      );
-                    }
+                      ),
+                    );
                   });
                   Navigator.pop(context);
                 }
@@ -117,9 +95,9 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     );
   }
 
-  void _toggleComplete(int index) {
+  void _markCompleted(Plan plan) {
     setState(() {
-      plans[index].isCompleted = !plans[index].isCompleted;
+      plan.isCompleted = !plan.isCompleted;
     });
   }
 
@@ -129,54 +107,111 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     });
   }
 
+  void _editPlan(int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String name = plans[index].name;
+        String description = plans[index].description;
+
+        return AlertDialog(
+          title: Text('Edit Plan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                decoration: InputDecoration(labelText: 'Plan Name'),
+                controller: TextEditingController(text: name),
+                onChanged: (value) => name = value,
+              ),
+              TextField(
+                decoration: InputDecoration(labelText: 'Description'),
+                controller: TextEditingController(text: description),
+                onChanged: (value) => description = value,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              child: Text('Save'),
+              onPressed: () {
+                setState(() {
+                  plans[index] = Plan(
+                    name: name,
+                    description: description,
+                    date: plans[index].date,
+                    isCompleted: plans[index].isCompleted,
+                  );
+                });
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCalendar() {
+    return TableCalendar(
+      focusedDay: selectedDate,
+      firstDay: DateTime.utc(2020, 1, 1),
+      lastDay: DateTime.utc(2100, 12, 31),
+      selectedDayPredicate: (day) => isSameDay(day, selectedDate),
+      onDaySelected: (selectedDay, focusedDay) {
+        setState(() {
+          selectedDate = selectedDay;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Plan Manager')),
-      body: ListView.builder(
-        itemCount: plans.length,
-        itemBuilder: (context, index) {
-          final plan = plans[index];
-          return GestureDetector(
-            onDoubleTap: () => _deletePlan(index),
-            onLongPress: () => _createOrEditPlan(index: index),
-            child: Dismissible(
-              key: Key(plan.name),
-              background: Container(
-                color: Colors.green,
-                child: Icon(Icons.check),
-              ),
-              secondaryBackground: Container(
-                color: Colors.red,
-                child: Icon(Icons.delete),
-              ),
-              onDismissed: (direction) {
-                if (direction == DismissDirection.startToEnd) {
-                  _toggleComplete(index);
-                } else {
-                  _deletePlan(index);
-                }
-              },
-              child: ListTile(
-                title: Text(
-                  plan.name,
-                  style: TextStyle(
-                    decoration:
+      body: Column(
+        children: [
+          _buildCalendar(),
+          Expanded(
+            child: ListView.builder(
+              itemCount: plans.length,
+              itemBuilder: (context, index) {
+                final plan = plans[index];
+                return GestureDetector(
+                  onLongPress: () => _editPlan(index),
+                  onHorizontalDragEnd: (_) => _markCompleted(plan),
+                  onDoubleTap: () => _deletePlan(index),
+                  child: ListTile(
+                    tileColor:
                         plan.isCompleted
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
+                            ? Colors.green.shade200
+                            : Colors.grey.shade200,
+                    title: Text(
+                      plan.name,
+                      style: TextStyle(
+                        decoration:
+                            plan.isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
+                      ),
+                    ),
+                    subtitle: Text(
+                      "${plan.description} | ${DateFormat.yMMMd().format(plan.date)}",
+                    ),
                   ),
-                ),
-                subtitle: Text(
-                  "${plan.description} | ${DateFormat.yMMMd().format(plan.date)}",
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _createOrEditPlan(),
+        onPressed: _createPlan,
         child: Icon(Icons.add),
       ),
     );
