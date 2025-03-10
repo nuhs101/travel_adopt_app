@@ -42,26 +42,28 @@ class PlanManagerScreen extends StatefulWidget {
 class _PlanManagerScreenState extends State<PlanManagerScreen> {
   List<Plan> plans = [];
 
-  void _createPlan() {
+  void _createOrEditPlan({int? index}) {
+    String name = index != null ? plans[index].name : '';
+    String description = index != null ? plans[index].description : '';
+    DateTime selectedDate = index != null ? plans[index].date : DateTime.now();
+
     showDialog(
       context: context,
       builder: (context) {
-        String name = '';
-        String description = '';
-        DateTime selectedDate = DateTime.now();
-
         return AlertDialog(
-          title: Text('Create Plan'),
+          title: Text(index == null ? 'Create Plan' : 'Edit Plan'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 decoration: InputDecoration(labelText: 'Plan Name'),
                 onChanged: (value) => name = value,
+                controller: TextEditingController(text: name),
               ),
               TextField(
                 decoration: InputDecoration(labelText: 'Description'),
                 onChanged: (value) => description = value,
+                controller: TextEditingController(text: description),
               ),
               ElevatedButton(
                 child: Text("Pick Date"),
@@ -89,13 +91,21 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
               onPressed: () {
                 if (name.isNotEmpty) {
                   setState(() {
-                    plans.add(
-                      Plan(
+                    if (index == null) {
+                      plans.add(
+                        Plan(
+                          name: name,
+                          description: description,
+                          date: selectedDate,
+                        ),
+                      );
+                    } else {
+                      plans[index] = Plan(
                         name: name,
                         description: description,
                         date: selectedDate,
-                      ),
-                    );
+                      );
+                    }
                   });
                   Navigator.pop(context);
                 }
@@ -105,10 +115,6 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
         );
       },
     );
-  }
-
-  void _editPlan(int index) {
-    _createPlan();
   }
 
   void _toggleComplete(int index) {
@@ -131,43 +137,46 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
         itemCount: plans.length,
         itemBuilder: (context, index) {
           final plan = plans[index];
-          return Dismissible(
-            key: Key(plan.name),
-            background: Container(
-              color: Colors.green,
-              child: Icon(Icons.check),
-            ),
-            secondaryBackground: Container(
-              color: Colors.red,
-              child: Icon(Icons.delete),
-            ),
-            onDismissed: (direction) {
-              if (direction == DismissDirection.startToEnd) {
-                _toggleComplete(index);
-              } else {
-                _deletePlan(index);
-              }
-            },
-            child: ListTile(
-              title: Text(
-                plan.name,
-                style: TextStyle(
-                  decoration:
-                      plan.isCompleted
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
+          return GestureDetector(
+            onDoubleTap: () => _deletePlan(index),
+            onLongPress: () => _createOrEditPlan(index: index),
+            child: Dismissible(
+              key: Key(plan.name),
+              background: Container(
+                color: Colors.green,
+                child: Icon(Icons.check),
+              ),
+              secondaryBackground: Container(
+                color: Colors.red,
+                child: Icon(Icons.delete),
+              ),
+              onDismissed: (direction) {
+                if (direction == DismissDirection.startToEnd) {
+                  _toggleComplete(index);
+                } else {
+                  _deletePlan(index);
+                }
+              },
+              child: ListTile(
+                title: Text(
+                  plan.name,
+                  style: TextStyle(
+                    decoration:
+                        plan.isCompleted
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                  ),
+                ),
+                subtitle: Text(
+                  "${plan.description} | ${DateFormat.yMMMd().format(plan.date)}",
                 ),
               ),
-              subtitle: Text(
-                "${plan.description} | ${DateFormat.yMMMd().format(plan.date)}",
-              ),
-              onLongPress: () => _editPlan(index),
             ),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _createPlan,
+        onPressed: () => _createOrEditPlan(),
         child: Icon(Icons.add),
       ),
     );
